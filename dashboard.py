@@ -209,7 +209,7 @@ with cols_kpi[3]:
 
 # --- 2. Fokus "Analisis Perilaku & Siklus" (Behavioral Patterns) ---
 st.header("2. Analisis Perilaku & Siklus: Kapan dan Mengapa Boros?")
-cols_behavior = st.columns(2)
+cols_behavior = st.columns(1)
 
 with cols_behavior[0]:
     st.subheader("Dampak Akhir Pekan vs Hari Kerja")
@@ -226,46 +226,6 @@ with cols_behavior[0]:
         st.plotly_chart(fig_weekend, use_container_width=True)
     else:
         st.info("Tidak ada data untuk menampilkan analisis perilaku.")
-
-with cols_behavior[1]:
-    st.subheader("Intensitas Pengeluaran per Tanggal")
-    if not df_filtered.empty:
-        df_filtered['Month_Year'] = df_filtered['Date'].dt.to_period('M').astype(str)
-        df_heatmap = df_filtered.groupby(['Month_Year', 'Day_of_month'])['Amount_IDR'].mean().reset_index()
-
-        heatmap_data = df_heatmap.pivot_table(index='Day_of_month', columns='Month_Year', values='Amount_IDR')
-
-        fig_heatmap = go.Figure(data=go.Heatmap(
-                z=heatmap_data.values,
-                x=heatmap_data.columns,
-                y=heatmap_data.index,
-                colorscale='YlOrRd'
-            ))
-        fig_heatmap.update_layout(
-            title='Heatmap Rata-rata Pengeluaran per Hari dalam Bulan',
-            xaxis_title='Bulan',
-            yaxis_title='Tanggal',
-            xaxis=dict(side="top")
-        )
-        st.plotly_chart(fig_heatmap, use_container_width=True)
-    else:
-        st.info("Tidak ada data untuk menampilkan heatmap.")
-
-if not df_filtered.empty:
-    st.subheader("Variabilitas Pengeluaran per Hari dalam Seminggu (Boxplot)")
-    day_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-    
-    fig_boxplot = px.box(
-        df_filtered,
-        x='Day_of_week',
-        y='Amount_IDR',
-        points="all", 
-        title='Distribusi Pengeluaran per Hari dalam Seminggu',
-        category_orders={"Day_of_week": day_order},
-        labels={'Amount_IDR': 'Pengeluaran (IDR)', 'Day_of_week': 'Hari'}
-    )
-    st.plotly_chart(fig_boxplot, use_container_width=True)
-
 
 # --- 3. Fokus "Deteksi Anomali & Momentum" (Lag-based Insights) ---
 st.header("3. Deteksi Anomali & Momentum: Apakah Pengeluaran Hari Ini Wajar?")
