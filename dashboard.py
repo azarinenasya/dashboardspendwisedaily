@@ -12,8 +12,6 @@ Original file is located at
 2. Seberapa besar deviasi pengeluaran harian (Amount_IDR) terhadap tren mingguan (Amount_IDR_lag_7) pada periode 'High-Spending' (tanggal 25 hingga tanggal 5 bulan berikutnya) di sepanjang tahun 2015-2018, dan apakah lonjakan tersebut mengonsumsi lebih dari 40% total Income bulanan?
 """
 
-!pip install streamlit pandas plotly scikit-learn numpy
-
 import streamlit as st
 import pandas as pd
 import plotly.express as px
