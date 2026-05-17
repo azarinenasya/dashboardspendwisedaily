@@ -3,7 +3,6 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import numpy as np
-import calendar
 from datetime import datetime, timedelta
 
 # --- Page Configuration ---
@@ -102,39 +101,31 @@ df['Amount_IDR_lag_7'] = df['Amount_IDR'].shift(7)
 # Sort by date to ensure correct lag calculations
 df.sort_values('Date', inplace=True)
 
-# --- Date filtering (Year & Month Selection) ---
+
+# Date filtering after all initial processing
 if not df.empty:
-    st.sidebar.subheader("Filter Periode")
-    
-    # Ambil daftar tahun yang unik
-    df['Year'] = df['Date'].dt.year
-    df['Month_Num'] = df['Date'].dt.month
-    
-    years = sorted(df['Year'].unique(), reverse=True)
-    selected_year = st.sidebar.selectbox("Pilih Tahun", years)
+    min_date = df['Date'].min().to_pydatetime()
+    max_date = df['Date'].max().to_pydatetime()
 
-    # Filter bulan yang tersedia di tahun tersebut
-    available_months_num = sorted(df[df['Year'] == selected_year]['Month_Num'].unique())
-    
-    # Mapping angka bulan ke nama bulan
-    month_names = [calendar.month_name[m] for m in available_months_num]
-    
-    selected_month_name = st.sidebar.selectbox("Pilih Bulan", month_names)
-    
-    # Dapatkan kembali angka bulan dari nama yang dipilih
-    selected_month_num = list(calendar.month_name).index(selected_month_name)
+    selected_dates = st.sidebar.date_input(
+        "Pilih Rentang Tanggal",
+        value=(min_date, max_date),
+        min_value=min_date,
+        max_value=max_date
+    )
 
-    # Proses Filtering Dataframe
-    df_filtered = df[
-        (df['Year'] == selected_year) & 
-        (df['Month_Num'] == selected_month_num)
-    ].copy()
-
-    # Tampilkan info rentang tanggal yang sedang aktif di sidebar
-    st.sidebar.caption(f"Menampilkan data untuk: {selected_month_name} {selected_year}")
+    if len(selected_dates) == 2:
+        start_date = selected_dates[0]
+        end_date = selected_dates[1]
+        df_filtered = df[(df['Date'] >= pd.to_datetime(start_date)) & (df['Date'] <= pd.to_datetime(end_date))].copy()
+    else:
+        df_filtered = df.copy()
+        st.sidebar.warning("Pilih dua tanggal untuk rentang yang valid.")
 else:
-    df_filtered = pd.DataFrame()
-    
+    df_filtered = pd.DataFrame() # Empty dataframe if initial df is empty
+
+monthly_target_budget = st.sidebar.number_input("Target Budget Bulanan (IDR)", min_value=100000, value=5000000, step=100000)
+
 # --- Data Preprocessing for Dashboard (Example) ---
 if not df_filtered.empty:
     current_month_start = df_filtered['Date'].max().replace(day=1)
@@ -218,7 +209,7 @@ with cols_kpi[3]:
 
 # --- 2. Fokus "Analisis Perilaku & Siklus" (Behavioral Patterns) ---
 st.header("2. Analisis Perilaku & Siklus: Kapan dan Mengapa Boros?")
-cols_behavior = st.columns(1)
+cols_behavior = st.columns(2)
 
 with cols_behavior[0]:
     st.subheader("Dampak Akhir Pekan vs Hari Kerja")
@@ -235,6 +226,46 @@ with cols_behavior[0]:
         st.plotly_chart(fig_weekend, use_container_width=True)
     else:
         st.info("Tidak ada data untuk menampilkan analisis perilaku.")
+
+with cols_behavior[1]:
+    st.subheader("Intensitas Pengeluaran per Tanggal")
+    if not df_filtered.empty:
+        df_filtered['Month_Year'] = df_filtered['Date'].dt.to_period('M').astype(str)
+        df_heatmap = df_filtered.groupby(['Month_Year', 'Day_of_month'])['Amount_IDR'].mean().reset_index()
+
+        heatmap_data = df_heatmap.pivot_table(index='Day_of_month', columns='Month_Year', values='Amount_IDR')
+
+        fig_heatmap = go.Figure(data=go.Heatmap(
+                z=heatmap_data.values,
+                x=heatmap_data.columns,
+                y=heatmap_data.index,
+                colorscale='YlOrRd'
+            ))
+        fig_heatmap.update_layout(
+            title='Heatmap Rata-rata Pengeluaran per Hari dalam Bulan',
+            xaxis_title='Bulan',
+            yaxis_title='Tanggal',
+            xaxis=dict(side="top")
+        )
+        st.plotly_chart(fig_heatmap, use_container_width=True)
+    else:
+        st.info("Tidak ada data untuk menampilkan heatmap.")
+
+if not df_filtered.empty:
+    st.subheader("Variabilitas Pengeluaran per Hari dalam Seminggu (Boxplot)")
+    day_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+    
+    fig_boxplot = px.box(
+        df_filtered,
+        x='Day_of_week',
+        y='Amount_IDR',
+        points="all", 
+        title='Distribusi Pengeluaran per Hari dalam Seminggu',
+        category_orders={"Day_of_week": day_order},
+        labels={'Amount_IDR': 'Pengeluaran (IDR)', 'Day_of_week': 'Hari'}
+    )
+    st.plotly_chart(fig_boxplot, use_container_width=True)
+
 
 # --- 3. Fokus "Deteksi Anomali & Momentum" (Lag-based Insights) ---
 st.header("3. Deteksi Anomali & Momentum: Apakah Pengeluaran Hari Ini Wajar?")
