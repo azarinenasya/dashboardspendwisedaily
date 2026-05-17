@@ -29,13 +29,19 @@ efisiensi budget, dan perbandingan perilaku belanja antara hari kerja vs akhir p
 # 3. FUNGSI LOAD DATA
 @st.cache_data
 def load_data():
-    # Ganti 'Daily Household Transactions.csv' dengan nama file kamu jika berbeda
-    df = pd.read_csv('Daily Household Transactions.csv')
-    df['Date'] = pd.to_datetime(df['Date'])
-    return df
-
-try:
-    df = load_data()
+    try:
+        # Ganti 'Daily Household Transactions.csv' dengan nama file kamu jika berbeda
+        df = pd.read_csv('Daily Household Transactions.csv')
+        
+        # Perbaikan di sini: Menambahkan dayfirst=True agar format DD/MM/YYYY terbaca benar
+        df['Date'] = pd.to_datetime(df['Date'], dayfirst=True)
+        
+        return df
+    except Exception as e:
+        # Jika masih error, gunakan format='mixed' (hanya tersedia di pandas versi baru)
+        df = pd.read_csv('Daily Household Transactions.csv')
+        df['Date'] = pd.to_datetime(df['Date'], format='mixed', dayfirst=True)
+        return df
 
     # --- SIDEBAR: FILTER ---
     st.sidebar.header("Filter & Target Anggaran")
