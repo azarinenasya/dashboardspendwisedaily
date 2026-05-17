@@ -125,7 +125,3 @@ def load_data():
             st.error(f"**Insight Budget:** Target Terlampaui! Anda defisit Rp {abs(budget_remaining):,.0f}.")
         else:
             st.info(f"**Insight Budget:** Budget Aman. Tersisa Rp {budget_remaining:,.0f} hingga akhir bulan.")
-
-except Exception as e:
-    st.error(f"Terjadi kesalahan saat membaca data: {e}")
-    st.info("Pastikan file 'dataset.csv' berada di folder yang sama dengan file dashboard.py ini.")
