@@ -29,8 +29,8 @@ efisiensi budget, dan perbandingan perilaku belanja antara hari kerja vs akhir p
 # 3. FUNGSI LOAD DATA
 @st.cache_data
 def load_data():
-    # Ganti 'dataset.csv' dengan nama file kamu jika berbeda
-    df = pd.read_csv('dataset.csv')
+    # Ganti 'Daily Household Transactions.csv' dengan nama file kamu jika berbeda
+    df = pd.read_csv('Daily Household Transactions.csv')
     df['Date'] = pd.to_datetime(df['Date'])
     return df
 
