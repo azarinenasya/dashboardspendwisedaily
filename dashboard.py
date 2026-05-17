@@ -15,8 +15,8 @@ Fokus utama: **Analisis Perilaku Akhir Pekan** dan **Tren Momentum (Lag Analysis
 # 3. Load Data
 @st.cache_data
 def load_data():
-    # Pastikan file CSV Anda bernama 'dataset.csv' atau ganti sesuai nama file Anda
-    df = pd.read_csv('dataset.csv')
+    # Pastikan file CSV Anda sudah ada
+    df = pd.read_csv('Daily Household Transactions.csv')
     df['Date'] = pd.to_datetime(df['Date'])
     return df
 
