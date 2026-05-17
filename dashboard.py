@@ -3,6 +3,7 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import numpy as np
+import calendar
 from datetime import datetime, timedelta
 
 # --- Page Configuration ---
@@ -101,31 +102,39 @@ df['Amount_IDR_lag_7'] = df['Amount_IDR'].shift(7)
 # Sort by date to ensure correct lag calculations
 df.sort_values('Date', inplace=True)
 
-
-# Date filtering after all initial processing
+# --- Date filtering (Year & Month Selection) ---
 if not df.empty:
-    min_date = df['Date'].min().to_pydatetime()
-    max_date = df['Date'].max().to_pydatetime()
+    st.sidebar.subheader("Filter Periode")
+    
+    # Ambil daftar tahun yang unik
+    df['Year'] = df['Date'].dt.year
+    df['Month_Num'] = df['Date'].dt.month
+    
+    years = sorted(df['Year'].unique(), reverse=True)
+    selected_year = st.sidebar.selectbox("Pilih Tahun", years)
 
-    selected_dates = st.sidebar.date_input(
-        "Pilih Rentang Tanggal",
-        value=(min_date, max_date),
-        min_value=min_date,
-        max_value=max_date
-    )
+    # Filter bulan yang tersedia di tahun tersebut
+    available_months_num = sorted(df[df['Year'] == selected_year]['Month_Num'].unique())
+    
+    # Mapping angka bulan ke nama bulan
+    month_names = [calendar.month_name[m] for m in available_months_num]
+    
+    selected_month_name = st.sidebar.selectbox("Pilih Bulan", month_names)
+    
+    # Dapatkan kembali angka bulan dari nama yang dipilih
+    selected_month_num = list(calendar.month_name).index(selected_month_name)
 
-    if len(selected_dates) == 2:
-        start_date = selected_dates[0]
-        end_date = selected_dates[1]
-        df_filtered = df[(df['Date'] >= pd.to_datetime(start_date)) & (df['Date'] <= pd.to_datetime(end_date))].copy()
-    else:
-        df_filtered = df.copy()
-        st.sidebar.warning("Pilih dua tanggal untuk rentang yang valid.")
+    # Proses Filtering Dataframe
+    df_filtered = df[
+        (df['Year'] == selected_year) & 
+        (df['Month_Num'] == selected_month_num)
+    ].copy()
+
+    # Tampilkan info rentang tanggal yang sedang aktif di sidebar
+    st.sidebar.caption(f"Menampilkan data untuk: {selected_month_name} {selected_year}")
 else:
-    df_filtered = pd.DataFrame() # Empty dataframe if initial df is empty
-
-monthly_target_budget = st.sidebar.number_input("Target Budget Bulanan (IDR)", min_value=100000, value=5000000, step=100000)
-
+    df_filtered = pd.DataFrame()
+    
 # --- Data Preprocessing for Dashboard (Example) ---
 if not df_filtered.empty:
     current_month_start = df_filtered['Date'].max().replace(day=1)
