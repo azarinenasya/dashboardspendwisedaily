@@ -30,98 +30,94 @@ efisiensi budget, dan perbandingan perilaku belanja antara hari kerja vs akhir p
 @st.cache_data
 def load_data():
     try:
-        # Ganti 'Daily Household Transactions.csv' dengan nama file kamu jika berbeda
         df = pd.read_csv('Daily Household Transactions.csv')
-        
-        # Perbaikan di sini: Menambahkan dayfirst=True agar format DD/MM/YYYY terbaca benar
         df['Date'] = pd.to_datetime(df['Date'], dayfirst=True)
-        
         return df
     except Exception as e:
-        # Jika masih error, gunakan format='mixed' (hanya tersedia di pandas versi baru)
         df = pd.read_csv('Daily Household Transactions.csv')
         df['Date'] = pd.to_datetime(df['Date'], format='mixed', dayfirst=True)
         return df
 
-    # --- SIDEBAR: FILTER ---
-    st.sidebar.header("Filter & Target Anggaran")
-    list_month = sorted(df['Month'].unique())
-    selected_month = st.sidebar.selectbox("Pilih Bulan", options=list_month)
-    target_bulanan = st.sidebar.number_input("Target Budget Bulanan (IDR)", value=5000000)
+# --- KODE DI BAWAH INI HARUS DI LUAR FUNGSI (TIDAK MENJOROK KE DALAM) ---
 
-    # Filter data berdasarkan bulan terpilih
-    df_filtered = df[df['Month'] == selected_month].sort_values('Date')
+# Panggil fungsi load_data
+df = load_data()
 
-    # --- ROW 1: RINGKASAN ANGKA (KPI METRICS) ---
-    total_spent = df_filtered['Amount_IDR'].sum()
-    budget_remaining = target_bulanan - total_spent
-    avg_daily_spent = df_filtered['Amount_IDR'].mean()
+# --- SIDEBAR: FILTER ---
+st.sidebar.header("Filter & Target Anggaran")
+list_month = sorted(df['Month'].unique())
+selected_month = st.sidebar.selectbox("Pilih Bulan", options=list_month)
+target_bulanan = st.sidebar.number_input("Target Budget Bulanan (IDR)", value=5000000)
+
+# Filter data berdasarkan bulan terpilih
+df_filtered = df[df['Month'] == selected_month].sort_values('Date')
+
+# --- ROW 1: RINGKASAN ANGKA (KPI METRICS) ---
+total_spent = df_filtered['Amount_IDR'].sum()
+budget_remaining = target_bulanan - total_spent
+avg_daily_spent = df_filtered['Amount_IDR'].mean()
+
+# Hitung kenaikan akhir pekan
+avg_weekend = df_filtered[df_filtered['is_weekend'] == 1]['Amount_IDR'].mean()
+avg_weekday = df_filtered[df_filtered['is_weekend'] == 0]['Amount_IDR'].mean()
+weekend_increase = ((avg_weekend - avg_weekday) / avg_weekday) * 100 if avg_weekday > 0 else 0
+
+col1, col2, col3, col4 = st.columns(4)
+col1.metric("Total Pengeluaran", f"Rp {total_spent:,.0f}")
+col2.metric("Sisa Budget", f"Rp {budget_remaining:,.0f}", delta=f"{(budget_remaining/target_bulanan)*100:.1f}% sisa")
+col3.metric("Rata-rata Harian", f"Rp {avg_daily_spent:,.0f}")
+col4.metric("Kenaikan Akhir Pekan", f"{weekend_increase:.1f}%")
+
+st.divider()
+
+# --- ROW 2: ANALISIS TREN (MOMENTUM) ---
+st.subheader("📈 Tren Pengeluaran: Aktual vs Minggu Lalu")
+st.caption("Menjawab SMART Question: Apakah pengeluaran hari ini lebih tinggi dari pola 7 hari sebelumnya?")
+
+fig_trend = px.line(df_filtered, x='Date', y=['Amount_IDR', 'Amount_IDR_lag_1', 'Amount_IDR_lag_7'],
+                    labels={'value': 'Jumlah (IDR)', 'Date': 'Tanggal', 'variable': 'Kategori'},
+                    color_discrete_map={"Amount_IDR": "#636EFA", "Amount_IDR_lag_7": "#FECB52"})
+st.plotly_chart(fig_trend, use_container_width=True)
+
+# --- ROW 3: ANALISIS PERILAKU (HISTOGRAM & BAR CHART) ---
+st.subheader("📊 Analisis Perilaku dan Siklus")
+col_left, col_right = st.columns(2)
+
+with col_left:
+    st.write("**Seberapa sering saya belanja di nominal tertentu?**")
+    fig_hist = px.histogram(df_filtered, x="Amount_IDR", 
+                           nbins=20,
+                           title="Distribusi Besaran Transaksi",
+                           labels={'Amount_IDR': 'Nominal Pengeluaran (IDR)', 'count': 'Jumlah Transaksi'},
+                           color_discrete_sequence=['#00CC96'])
+    fig_hist.update_layout(bargap=0.1)
+    st.plotly_chart(fig_hist, use_container_width=True)
+
+with col_right:
+    st.write("**Rata-rata: Hari Kerja vs Akhir Pekan**")
+    weekend_data = df_filtered.groupby('is_weekend')['Amount_IDR'].mean().reset_index()
+    weekend_data['is_weekend'] = weekend_data['is_weekend'].map({0: 'Hari Kerja', 1: 'Akhir Pekan'})
     
-    # Hitung kenaikan akhir pekan untuk menjawab SMART Question
-    avg_weekend = df_filtered[df_filtered['is_weekend'] == 1]['Amount_IDR'].mean()
-    avg_weekday = df_filtered[df_filtered['is_weekend'] == 0]['Amount_IDR'].mean()
-    weekend_increase = ((avg_weekend - avg_weekday) / avg_weekday) * 100 if avg_weekday > 0 else 0
+    fig_weekend = px.bar(weekend_data, x='is_weekend', y='Amount_IDR',
+                         color='is_weekend', 
+                         text_auto='.2s',
+                         labels={'Amount_IDR': 'Rata-rata (IDR)', 'is_weekend': ''},
+                         color_discrete_map={'Hari Kerja': '#AB63FA', 'Akhir Pekan': '#FFA15A'})
+    st.plotly_chart(fig_weekend, use_container_width=True)
 
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Total Pengeluaran", f"Rp {total_spent:,.0f}")
-    col2.metric("Sisa Budget", f"Rp {budget_remaining:,.0f}", delta=f"{(budget_remaining/target_bulanan)*100:.1f}% sisa")
-    col3.metric("Rata-rata Harian", f"Rp {avg_daily_spent:,.0f}")
-    col4.metric("Kenaikan Akhir Pekan", f"{weekend_increase:.1f}%")
+# --- ROW 4: SMART INSIGHTS ---
+st.divider()
+st.subheader("💡 Kesimpulan & Tindakan")
 
-    st.divider()
+col_ins1, col_ins2 = st.columns(2)
+with col_ins1:
+    if weekend_increase > 20:
+        st.warning(f"**Insight Weekend:** Pengeluaran naik {weekend_increase:.1f}% di akhir pekan. **Saran:** Batasi belanja hiburan.")
+    else:
+        st.success("**Insight Weekend:** Pengeluaran akhir pekan stabil. Pertahankan!")
 
-    # --- ROW 2: ANALISIS TREN (MOMENTUM) ---
-    st.subheader("📈 Tren Pengeluaran: Aktual vs Minggu Lalu")
-    st.caption("Menjawab SMART Question: Apakah pengeluaran hari ini lebih tinggi dari pola 7 hari sebelumnya?")
-    
-    fig_trend = px.line(df_filtered, x='Date', y=['Amount_IDR', 'Amount_IDR_lag_7'],
-                        labels={'value': 'Jumlah (IDR)', 'Date': 'Tanggal', 'variable': 'Kategori'},
-                        color_discrete_map={"Amount_IDR": "#636EFA", "Amount_IDR_lag_7": "#FECB52"})
-    st.plotly_chart(fig_trend, use_container_width=True)
-
-    # --- ROW 3: ANALISIS PERILAKU (HISTOGRAM & BAR CHART) ---
-    st.subheader("📊 Analisis Perilaku dan Siklus")
-    col_left, col_right = st.columns(2)
-
-    with col_left:
-        # PENGGANTI BOXPLOT: HISTOGRAM (DISTRIBUSI)
-        st.write("**Seberapa sering saya belanja di nominal tertentu?**")
-        fig_hist = px.histogram(df_filtered, x="Amount_IDR", 
-                               nbins=20,
-                               title="Distribusi Besaran Transaksi",
-                               labels={'Amount_IDR': 'Nominal Pengeluaran (IDR)', 'count': 'Jumlah Transaksi'},
-                               color_discrete_sequence=['#00CC96'])
-        fig_hist.update_layout(bargap=0.1)
-        st.plotly_chart(fig_hist, use_container_width=True)
-        st.caption("Histogram ini menunjukkan distribusi pengeluaran. Semakin tinggi batang di kiri, semakin sering Anda melakukan transaksi kecil.")
-
-    with col_right:
-        # PERBANDINGAN RATA-RATA HARIAN
-        st.write("**Rata-rata: Hari Kerja vs Akhir Pekan**")
-        weekend_data = df_filtered.groupby('is_weekend')['Amount_IDR'].mean().reset_index()
-        weekend_data['is_weekend'] = weekend_data['is_weekend'].map({0: 'Hari Kerja', 1: 'Akhir Pekan'})
-        
-        fig_weekend = px.bar(weekend_data, x='is_weekend', y='Amount_IDR',
-                             color='is_weekend', 
-                             text_auto='.2s',
-                             labels={'Amount_IDR': 'Rata-rata (IDR)', 'is_weekend': ''},
-                             color_discrete_map={'Hari Kerja': '#AB63FA', 'Akhir Pekan': '#FFA15A'})
-        st.plotly_chart(fig_weekend, use_container_width=True)
-        st.caption("Menjawab SMART Question: Berapa besar kenaikan rata-rata belanja saat weekend?")
-
-    # --- ROW 4: SMART INSIGHTS (ACTION ORIENTED) ---
-    st.divider()
-    st.subheader("💡 Kesimpulan & Tindakan")
-    
-    col_ins1, col_ins2 = st.columns(2)
-    with col_ins1:
-        if weekend_increase > 20:
-            st.warning(f"**Insight Weekend:** Pengeluaran naik {weekend_increase:.1f}% di akhir pekan. **Saran:** Coba batasi belanja hiburan.")
-        else:
-            st.success("**Insight Weekend:** Pengeluaran akhir pekan stabil. Pertahankan!")
-
-    with col_ins2:
-        if total_spent > target_bulanan:
-            st.error(f"**Insight Budget:** Target Terlampaui! Anda defisit Rp {abs(budget_remaining):,.0f}.")
-        else:
-            st.info(f"**Insight Budget:** Budget Aman. Tersisa Rp {budget_remaining:,.0f} hingga akhir bulan.")
+with col_ins2:
+    if total_spent > target_bulanan:
+        st.error(f"**Insight Budget:** Target Terlampaui! Anda defisit Rp {abs(budget_remaining):,.0f}.")
+    else:
+        st.info(f"**Insight Budget:** Budget Aman. Tersisa Rp {budget_remaining:,.0f} hingga akhir bulan.")
